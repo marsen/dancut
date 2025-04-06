@@ -140,10 +140,11 @@ async function processVideoByMinute(videoFilePath: string, outputDir: string, cl
   ensureDirectoryExistence(outputDir);
 
   const videoDuration = await getVideoDuration(videoFilePath);
+  const fileExtension = path.extname(videoFilePath).toLowerCase(); // 動態取得原始檔案的副檔名
 
   for (let startTime = 0; startTime < videoDuration; startTime += clipDuration) {
     const endTime = Math.min(startTime + clipDuration, videoDuration);
-    const outputFileName = `clip_${path.basename(videoFilePath, '.mp4')}_${String(startTime).padStart(4, '0')}.mp4`;
+    const outputFileName = `clip_${path.basename(videoFilePath, fileExtension)}_${String(startTime).padStart(4, '0')}${fileExtension}`;
     const outputPath = path.join(outputDir, outputFileName);
 
     await new Promise<void>((resolve, reject) => {
