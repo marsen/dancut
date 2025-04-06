@@ -1,12 +1,22 @@
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import { createCanvas, loadImage } from 'canvas';
+import youtubedl from 'youtube-dl-exec';
+import path from 'path';
+import dotenv from 'dotenv';
 
+// 加載 .env 檔案
+dotenv.config();
+const youtubeUrl = process.env.YT_URL;
+
+if (!youtubeUrl) {
+  throw new Error('YOUTUBE_URL is not defined in the .env file');
+}
 // 生成音頻波形圖
 function generateWaveform(videoFilePath: string, outputImagePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     ffmpeg(videoFilePath)
-      .outputOptions('-filter_complex', 'showwavespic=s=640x120')
+      .outputOptions('-filter_complex', 'showwavespic=s=1920x480')
       .output(outputImagePath)
       .on('end', () => {
         console.log('Waveform image generated');
@@ -85,10 +95,44 @@ function extractFramesAtBeats(videoFilePath: string, beatTimes: number[]) {
   });
 }
 
+// 確保目錄存在
+function ensureDirectoryExistence(filePath: string) {
+  const dirname = path.dirname(filePath);
+  if (!fs.existsSync(dirname)) {
+    fs.mkdirSync(dirname, { recursive: true });
+  }
+}
+
+// 使用 youtube-dl-exec 下載 YouTube 影片
+function downloadYouTubeVideoWithYoutubeDl(url: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    youtubedl(url, {
+      output: outputPath,
+      format: 'best',
+    })
+      .then(() => {
+        console.log('YouTube video downloaded');
+        resolve();
+      })
+      .catch((err) => {
+        console.error('Error downloading video:', err);
+        reject(err);
+      });
+  });
+}
+
 // 主處理函數
-async function processVideo(videoFilePath: string) {
+async function processYouTubeVideo(youtubeUrl: string) {
   try {
-    const waveformImagePath = './dist/waveform.png';
+    const videoFilePath = './dist/temp/video.mp4';
+    const waveformImagePath = './dist/temp/waveform.png';
+
+    // 確保目錄存在
+    ensureDirectoryExistence(videoFilePath);
+    ensureDirectoryExistence(waveformImagePath);
+
+    // 使用 youtube-dl-exec 下載 YouTube 影片
+    await downloadYouTubeVideoWithYoutubeDl(youtubeUrl, videoFilePath);
 
     // 獲取影片的總時長
     const videoDuration = await getVideoDuration(videoFilePath);
@@ -102,9 +146,10 @@ async function processVideo(videoFilePath: string) {
     // 根據節拍擷取影片幀
     extractFramesAtBeats(videoFilePath, beatTimes);
   } catch (err) {
-    console.error('Error processing video:', err);
+    console.error('Error processing YouTube video:', err);
   }
 }
 
-// 處理影片
-processVideo('./sample.MP4');
+
+// 處理 YouTube 影片
+processYouTubeVideo(youtubeUrl);
