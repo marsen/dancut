@@ -7,11 +7,7 @@ import dotenv from 'dotenv';
 
 // 加載 .env 檔案
 dotenv.config();
-const youtubeUrl = process.env.YT_URL;
 
-if (!youtubeUrl) {
-  throw new Error('YOUTUBE_URL is not defined in the .env file');
-}
 // 生成音頻波形圖
 function generateWaveform(videoFilePath: string, outputImagePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -122,17 +118,36 @@ function downloadYouTubeVideoWithYoutubeDl(url: string, outputPath: string): Pro
 }
 
 // 主處理函數
-async function processYouTubeVideo(youtubeUrl: string) {
-  try {
-    const videoFilePath = './dist/temp/video.mp4';
-    const waveformImagePath = './dist/temp/waveform.png';
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.length < 2) {
+    console.error('Usage: node index.js <source> <path_or_url>');
+    console.error('<source>: "youtube" 或 "local"');
+    console.error('<path_or_url>: YouTube URL 或地端影片路徑');
+    process.exit(1);
+  }
 
-    // 確保目錄存在
+  const source = args[0];
+  const inputPath = args[1];
+  const videoFilePath = './dist/temp/video.mp4';
+  const waveformImagePath = './dist/temp/waveform.png';
+
+  try {
     ensureDirectoryExistence(videoFilePath);
     ensureDirectoryExistence(waveformImagePath);
 
-    // 使用 youtube-dl-exec 下載 YouTube 影片
-    await downloadYouTubeVideoWithYoutubeDl(youtubeUrl, videoFilePath);
+    if (source === 'youtube') {
+      console.log('Downloading YouTube video...');
+      await downloadYouTubeVideoWithYoutubeDl(inputPath, videoFilePath);
+    } else if (source === 'local') {
+      console.log('Using local video file...');
+      if (!fs.existsSync(inputPath)) {
+        throw new Error(`Local file not found: ${inputPath}`);
+      }
+      fs.copyFileSync(inputPath, videoFilePath);
+    } else {
+      throw new Error('Invalid source. Use "youtube" or "local".');
+    }
 
     // 獲取影片的總時長
     const videoDuration = await getVideoDuration(videoFilePath);
@@ -146,10 +161,8 @@ async function processYouTubeVideo(youtubeUrl: string) {
     // 根據節拍擷取影片幀
     extractFramesAtBeats(videoFilePath, beatTimes);
   } catch (err) {
-    console.error('Error processing YouTube video:', err);
+    console.error('Error processing video:', err);
   }
 }
 
-
-// 處理 YouTube 影片
-processYouTubeVideo(youtubeUrl);
+main();

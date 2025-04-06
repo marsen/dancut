@@ -28,24 +28,18 @@ Dancut 是一個用於從 YouTube 影片中擷取節拍幀的工具。
    npm i
    ```
 
-4. 複製 `.env.sample` 並命名為 `.env`:
-
-   ```bash
-   cp .env.sample .env
-   ```
-
-5. 在 `.env` 文件中設定 `YT_URL` 為你想要處理的 YouTube 影片 URL：
-
-   ```bash
-   YT_URL=https://www.youtube.com/watch?v=VIDEO_ID
-   ```
-
 ## 使用
 
 1. 執行以下命令來處理影片：
 
    ```bash
-   npx ts-node index.ts
+   npx ts-node index.ts youtube "https://www.youtube.com/watch?v=VIDEO_ID"
+   ```
+
+   或是
+
+   ```bash
+   npx ts-node index.ts local "./dist/temp/video.mp4"
    ```
 
 2. 程式將會執行以下步驟：
