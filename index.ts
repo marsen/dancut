@@ -117,50 +117,91 @@ function downloadYouTubeVideoWithYoutubeDl(url: string, outputPath: string): Pro
   });
 }
 
+// 單一影片處理（原有功能）
+async function processSingleVideo(videoFilePath: string) {
+  const waveformImagePath = './dist/temp/waveform.png';
+
+  // 獲取影片的總時長
+  const videoDuration = await getVideoDuration(videoFilePath);
+
+  // 生成音頻波形圖
+  await generateWaveform(videoFilePath, waveformImagePath);
+
+  // 檢測波形的峰值
+  const beatTimes = await detectBeatsFromWaveform(waveformImagePath, videoDuration);
+
+  // 根據節拍擷取影片幀
+  extractFramesAtBeats(videoFilePath, beatTimes);
+}
+
+// 每分鐘切割影片
+async function processVideoByMinute(videoFilePath: string, outputDir: string, clipDuration: number) {
+  const videoDuration = await getVideoDuration(videoFilePath);
+
+  for (let startTime = 0; startTime < videoDuration; startTime += clipDuration) {
+    const endTime = Math.min(startTime + clipDuration, videoDuration);
+    const outputFileName = `clip_${path.basename(videoFilePath, '.mp4')}_${String(startTime).padStart(4, '0')}.mp4`;
+    const outputPath = path.join(outputDir, outputFileName);
+
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(videoFilePath)
+        .setStartTime(startTime)
+        .setDuration(endTime - startTime)
+        .output(outputPath)
+        .on('end', () => {
+          console.log(`Created clip: ${outputFileName}`);
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error(`Error creating clip: ${err}`);
+          reject(err);
+        })
+        .run();
+    });
+  }
+}
+
 // 主處理函數
 async function main() {
   const args = process.argv.slice(2);
   if (args.length < 2) {
-    console.error('Usage: node index.js <source> <path_or_url>');
-    console.error('<source>: "youtube" 或 "local"');
+    console.error('Usage: node index.js <source> <path_or_url> [clip_duration]');
+    console.error('<source>: "yt" (YouTube) 或 "l" (local)');
     console.error('<path_or_url>: YouTube URL 或地端影片路徑');
+    console.error('[clip_duration]: (可選) 切割影片的片段長度（以秒為單位）');
     process.exit(1);
   }
 
   // 簡化參數
   const source = args[0] === 'yt' ? 'youtube' : args[0] === 'l' ? 'local' : args[0];
   const inputPath = args[1];
+  const clipDuration = args[2] ? parseInt(args[2], 10) : null; // 可選的切割長度
   const videoFilePath = './dist/temp/video.mp4';
-  const waveformImagePath = './dist/temp/waveform.png';
+  const outputDir = './output';
 
   try {
     ensureDirectoryExistence(videoFilePath);
-    ensureDirectoryExistence(waveformImagePath);
+    ensureDirectoryExistence(outputDir);
 
-    if (source === 'youtube') {
-      console.log('Downloading YouTube video...');
-      await downloadYouTubeVideoWithYoutubeDl(inputPath, videoFilePath);
-    } else if (source === 'local') {
+    if (source === 'local') {
       console.log('Using local video file...');
       if (!fs.existsSync(inputPath)) {
         throw new Error(`Local file not found: ${inputPath}`);
       }
       fs.copyFileSync(inputPath, videoFilePath);
+
+      if (clipDuration) {
+        // 如果提供了切割長度，執行切割功能
+        console.log(`Splitting video into ${clipDuration}-second clips...`);
+        await processVideoByMinute(videoFilePath, outputDir, clipDuration);
+      } else {
+        // 否則執行原有功能
+        console.log('Processing video for waveform and frame extraction...');
+        await processSingleVideo(videoFilePath);
+      }
     } else {
-      throw new Error('Invalid source. Use "youtube" or "local".');
+      throw new Error('Invalid source. Use "l" for local videos.');
     }
-
-    // 獲取影片的總時長
-    const videoDuration = await getVideoDuration(videoFilePath);
-
-    // 生成音頻波形圖
-    await generateWaveform(videoFilePath, waveformImagePath);
-
-    // 檢測波形的峰值
-    const beatTimes = await detectBeatsFromWaveform(waveformImagePath, videoDuration);
-
-    // 根據節拍擷取影片幀
-    extractFramesAtBeats(videoFilePath, beatTimes);
   } catch (err) {
     console.error('Error processing video:', err);
   }
