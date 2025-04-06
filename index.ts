@@ -127,7 +127,8 @@ async function main() {
     process.exit(1);
   }
 
-  const source = args[0];
+  // 簡化參數
+  const source = args[0] === 'yt' ? 'youtube' : args[0] === 'l' ? 'local' : args[0];
   const inputPath = args[1];
   const videoFilePath = './dist/temp/video.mp4';
   const waveformImagePath = './dist/temp/waveform.png';
