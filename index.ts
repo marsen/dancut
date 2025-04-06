@@ -170,7 +170,7 @@ async function main() {
   if (args.length < 2) {
     console.error('Usage: node index.js <source> <path_or_url> [clip_duration]');
     console.error('<source>: "yt" (YouTube) 或 "l" (local)');
-    console.error('<path_or_url>: YouTube URL 或地端影片路徑');
+    console.error('<path_or_url>: YouTube URL 或地端影片路徑（檔案或資料夾）');
     console.error('[clip_duration]: (可選) 切割影片的片段長度（以秒為單位）');
     process.exit(1);
   }
@@ -179,29 +179,58 @@ async function main() {
   const source = args[0] === 'yt' ? 'youtube' : args[0] === 'l' ? 'local' : args[0];
   const inputPath = args[1];
   const clipDuration = args[2] ? parseInt(args[2], 10) : null; // 可選的切割長度
-  const videoFilePath = './dist/temp/video.mp4';
   const outputDir = './output';
 
   try {
     // 確保必要的目錄存在
-    ensureDirectoryExistence('./dist/temp');
     ensureDirectoryExistence(outputDir);
 
     if (source === 'local') {
-      console.log('Using local video file...');
-      if (!fs.existsSync(inputPath)) {
-        throw new Error(`Local file not found: ${inputPath}`);
-      }
-      fs.copyFileSync(inputPath, videoFilePath);
+      console.log('Using local video file or directory...');
 
-      if (clipDuration) {
-        // 如果提供了切割長度，執行切割功能
-        console.log(`Splitting video into ${clipDuration}-second clips...`);
-        await processVideoByMinute(videoFilePath, outputDir, clipDuration);
+      // 檢查路徑是否為資料夾
+      if (fs.lstatSync(inputPath).isDirectory()) {
+        console.log(`Processing all videos in directory: ${inputPath}`);
+        const videoFiles = fs
+          .readdirSync(inputPath)
+          .filter((file) => {
+            const ext = path.extname(file).toLowerCase(); // 將副檔名轉為小寫
+            return ext === '.mp4' || ext === '.mov'; // 支援 .mp4 和 .mov
+          });
+
+        if (videoFiles.length === 0) {
+          throw new Error(`No .mp4 or .mov files found in directory: ${inputPath}`);
+        }
+
+        for (const file of videoFiles) {
+          const fullPath = path.join(inputPath, file);
+          console.log(`Processing video: ${fullPath}`);
+
+          if (clipDuration) {
+            // 如果提供了切割長度，執行切割功能
+            console.log(`Splitting video into ${clipDuration}-second clips...`);
+            await processVideoByMinute(fullPath, outputDir, clipDuration);
+          } else {
+            // 否則執行原有功能
+            console.log('Processing video for waveform and frame extraction...');
+            await processSingleVideo(fullPath);
+          }
+        }
       } else {
-        // 否則執行原有功能
-        console.log('Processing video for waveform and frame extraction...');
-        await processSingleVideo(videoFilePath);
+        // 單一檔案處理
+        if (!fs.existsSync(inputPath)) {
+          throw new Error(`Local file not found: ${inputPath}`);
+        }
+
+        if (clipDuration) {
+          // 如果提供了切割長度，執行切割功能
+          console.log(`Splitting video into ${clipDuration}-second clips...`);
+          await processVideoByMinute(inputPath, outputDir, clipDuration);
+        } else {
+          // 否則執行原有功能
+          console.log('Processing video for waveform and frame extraction...');
+          await processSingleVideo(inputPath);
+        }
       }
     } else {
       throw new Error('Invalid source. Use "l" for local videos.');
