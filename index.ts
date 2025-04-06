@@ -92,10 +92,10 @@ function extractFramesAtBeats(videoFilePath: string, beatTimes: number[]) {
 }
 
 // 確保目錄存在
-function ensureDirectoryExistence(filePath: string) {
-  const dirname = path.dirname(filePath);
-  if (!fs.existsSync(dirname)) {
-    fs.mkdirSync(dirname, { recursive: true });
+function ensureDirectoryExistence(dirPath: string) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`Created directory: ${dirPath}`);
   }
 }
 
@@ -136,6 +136,9 @@ async function processSingleVideo(videoFilePath: string) {
 
 // 每分鐘切割影片
 async function processVideoByMinute(videoFilePath: string, outputDir: string, clipDuration: number) {
+  // 確保輸出目錄存在
+  ensureDirectoryExistence(outputDir);
+
   const videoDuration = await getVideoDuration(videoFilePath);
 
   for (let startTime = 0; startTime < videoDuration; startTime += clipDuration) {
@@ -180,7 +183,8 @@ async function main() {
   const outputDir = './output';
 
   try {
-    ensureDirectoryExistence(videoFilePath);
+    // 確保必要的目錄存在
+    ensureDirectoryExistence('./dist/temp');
     ensureDirectoryExistence(outputDir);
 
     if (source === 'local') {
